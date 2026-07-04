@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>VietstockFinance CSTC — Comparator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';"></script>
+<style>
+/* ===== THEME VARIABLES ===== */
+:root {
+  --bg:#0b0f0d; --panel:#111712; --panel-edge:#1c2a20; --grid:#1a241c;
+  --amber:#ffb627; --amber-dim:rgba(255,182,39,0.13); --green:#3ddc84; --green-dim:rgba(61,220,132,0.13);
+  --red:#ff5d5d; --text:#d8e6da; --text-dim:#6f8276; --kpi-bg:#0d130f;
+  --shadow:rgba(0,0,0,0.45); --bg-dot:rgba(61,220,132,0.025);
+  --mono:'Courier New',Consolas,monospace; --disp:Georgia,'Times New Roman',serif;
+}
+[data-theme="light"] {
+  --bg:#f0f4f1; --panel:#ffffff; --panel-edge:#ccd8cf; --grid:#e3ece5;
+  --amber:#a06800; --amber-dim:rgba(160,104,0,0.1); --green:#0a6b30; --green-dim:rgba(10,107,48,0.1);
+  --red:#b00000; --text:#192c1e; --text-dim:#6a8070; --kpi-bg:#f5f9f6;
+  --shadow:rgba(0,0,0,0.1); --bg-dot:rgba(10,107,48,0.025);
+}
+*,*::before,*::after{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;transition:background .25s,color .25s;
+  background-image:linear-gradient(var(--bg-dot) 1px,transparent 1px),linear-gradient(90deg,var(--bg-dot) 1px,transparent 1px);background-size:24px 24px;}
+
+/* ===== HEADER ===== */
+header{padding:13px 24px;border-bottom:1px solid var(--panel-edge);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+header h1{font-family:var(--disp);font-size:22px;margin:0;color:var(--amber);font-weight:400;}
+.header-r{display:flex;align-items:center;gap:12px;}
+.theme-grp{display:flex;border:1px solid var(--panel-edge);border-radius:20px;overflow:hidden;}
+.theme-btn{padding:5px 11px;font-size:10px;font-family:var(--mono);letter-spacing:1px;cursor:pointer;border:none;background:transparent;color:var(--text-dim);transition:all .15s;}
+.theme-btn.active{background:var(--amber);color:#000;font-weight:bold;}
+.theme-btn:hover:not(.active){color:var(--amber);}
+
+/* ===== LAYOUT ===== */
+.wrap{padding:18px 24px 60px;max-width:1280px;margin:0 auto;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:740px){.grid2{grid-template-columns:1fr;}}
+
+/* ===== UPLOADER ===== */
+.uploader{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+@media(max-width:740px){.uploader{grid-template-columns:1fr;}}
+.dropzone{border:1.5px dashed var(--panel-edge);background:var(--panel);padding:20px;text-align:center;
+  border-radius:4px;cursor:pointer;transition:border-color .15s;position:relative;}
+.dropzone:hover,.dropzone.drag{border-color:var(--amber);}
+.dropzone input{display:none;}
+.dropzone .ic{font-size:20px;color:var(--text-dim);margin-bottom:5px;}
+.dropzone .lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);}
+.dropzone .fname{margin-top:8px;font-family:var(--disp);font-size:15px;color:var(--amber);}
+.slot-tag{font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;position:absolute;top:9px;left:13px;}
+.status{font-size:11.5px;color:var(--text-dim);margin-top:5px;min-height:16px;}
+.status.err{color:var(--red);} .status.ok{color:var(--green);}
+
+/* ===== APP / TABS ===== */
+#appRoot{display:none;} #appRoot.ready{display:block;}
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--panel-edge);}
+.tab{padding:8px 16px;cursor:pointer;color:var(--text-dim);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
+  border:1px solid transparent;border-bottom:none;background:transparent;transition:color .15s;}
+.tab.active{color:var(--amber);border-color:var(--panel-edge);background:var(--panel);border-bottom:2px solid var(--amber);margin-bottom:-1px;}
+.view{display:none;} .view.active{display:block;}
+
+/* ===== PANEL ===== */
+.panel{background:var(--panel);border:1px solid var(--panel-edge);padding:14px 16px;border-radius:3px;position:relative;transition:background .25s,border-color .25s;}
+.panel::before{content:attr(data-tag);position:absolute;top:-9px;left:13px;background:var(--bg);padding:0 6px;font-size:10px;letter-spacing:2px;color:var(--text-dim);transition:background .25s;}
+
+/* ===== TABLE + HOVER HIGHLIGHT ===== */
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+td,th{padding:5px 4px;border-bottom:1px solid var(--grid);text-align:right;}
+td:first-child,th:first-child{text-align:left;color:var(--text-dim);}
+th{color:var(--text-dim);font-weight:normal;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;}
+.num{font-weight:bold;} .pos{color:var(--green);} .neg{color:var(--red);} .neu{color:var(--text);}
+tbody tr{transition:background .1s;}
+tbody tr:hover{background:var(--amber-dim);}
+tbody tr:hover td{font-weight:bold !important;}
+tbody tr:hover td:first-child{color:var(--amber) !important;font-weight:bold !important;}
+tbody tr:hover .num{filter:brightness(1.35);}
+tbody tr:hover .pos{color:var(--green) !important;filter:brightness(1.2);}
+tbody tr:hover .neg{color:var(--red) !important;filter:brightness(1.2);}
+tbody tr:hover .neu{color:var(--text) !important;filter:brightness(1.3);}
+
+/* ===== VERDICT ROWS ===== */
+.vrow{display:flex;align-items:center;justify-content:space-between;padding:7px 4px;border-bottom:1px solid var(--grid);border-radius:2px;transition:background .1s;}
+.vrow:hover{background:var(--amber-dim);}
+.vrow:hover .vm{color:var(--text) !important;font-weight:bold;}
+.vm{color:var(--text-dim);font-size:11.5px;}
+.badge{padding:2px 9px;border-radius:10px;font-size:10.5px;letter-spacing:1px;}
+.badge.a{background:var(--green-dim);color:var(--green);}
+.badge.b{background:var(--amber-dim);color:var(--amber);}
+.badge.tie{background:var(--grid);color:var(--text-dim);}
+
+/* ===== KPI CARDS ===== */
+.kpi-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.kpi{flex:1 1 90px;background:var(--kpi-bg);border:1px solid var(--panel-edge);padding:9px 11px;transition:border-color .15s,transform .1s;}
+.kpi:hover{border-color:var(--amber);transform:translateY(-2px);}
+.kpi .lbl{font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+.kpi .val{font-size:18px;font-family:var(--disp);margin-top:3px;}
+
+/* ===== FORM CONTROLS ===== */
+select,input[type=number]{background:var(--kpi-bg);border:1px solid var(--panel-edge);color:var(--amber);font-family:var(--mono);font-size:12px;border-radius:2px;padding:6px 8px;}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--panel-edge);accent-color:var(--amber);border:none;padding:0;cursor:pointer;width:100%;border-radius:2px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--amber);cursor:pointer;}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--amber);border:none;cursor:pointer;}
+label.fld{display:block;font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.field{margin-bottom:12px;}
+.range-row{display:flex;align-items:center;gap:10px;}
+.rval-lbl{min-width:46px;text-align:right;color:var(--amber);font-weight:bold;font-size:13px;}
+
+/* ===== METHOD SWITCHER ===== */
+.method-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.mbtn{padding:7px 16px;font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  cursor:pointer;border:1px solid var(--panel-edge);background:transparent;color:var(--text-dim);border-radius:2px;transition:all .15s;}
+.mbtn.active{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
+.mbtn:hover:not(.active){border-color:var(--text-dim);color:var(--text);}
+.mpanel{display:none;} .mpanel.active{display:block;}
+
+/* ===== VALUATION RESULT ROWS ===== */
+.vr-row{display:flex;justify-content:space-between;padding:5px 4px;border-bottom:1px solid var(--grid);font-size:12.5px;transition:background .1s;}
+.vr-row:hover{background:var(--amber-dim);font-weight:bold;}
+.vr-row .rl{color:var(--text-dim);} .vr-row .rv{font-weight:bold;color:var(--text);}
+.vr-total{display:flex;justify-content:space-between;padding:9px 4px;margin-top:4px;border-top:2px solid var(--amber);}
+.vr-total .rl{color:var(--amber);font-weight:bold;} .vr-total .rv{color:var(--amber);font-size:16px;font-family:var(--disp);font-weight:bold;}
+
+/* ===== MISC ===== */
+.stock-h1{font-family:var(--disp);font-size:19px;color:var(--text);margin:0 0 2px;}
+.stock-h1 .sym{color:var(--amber);}
+.stock-sub{color:var(--text-dim);font-size:11px;margin-bottom:10px;}
+.score-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:10px 0;}
+.score-bar div{height:100%;}
+.chart-box{height:260px;}
+footer{text-align:center;color:var(--text-dim);font-size:11px;padding:16px;border-top:1px solid var(--panel-edge);}
+.sig{margin-top:16px;padding:12px 16px;border:1px dashed var(--panel-edge);font-size:11.5px;color:var(--text-dim);line-height:1.6;}
+.reset{background:transparent;border:1px solid var(--panel-edge);color:var(--text-dim);padding:6px 12px;font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:1px;text-transform:uppercase;border-radius:2px;transition:all .15s;}
+.reset:hover{color:var(--amber);border-color:var(--amber);}
+.notice{font-size:12px;color:var(--text-dim);font-style:italic;padding:12px 0;border-top:1px dashed var(--panel-edge);margin-top:8px;line-height:1.5;}
+.upside-line{font-size:14px;font-family:var(--disp);margin-top:8px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CSTC File Comparator</h1>
+  <div class="header-r">
+    <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px;">THEME</span>
+    <div class="theme-grp">
+      <button class="theme-btn" data-mode="auto">AUTO</button>
+      <button class="theme-btn active" data-mode="dark">DARK</button>
+      <button class="theme-btn" data-mode="light">LIGHT</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="uploader">
+    <label class="dropzone" id="dz1">
+      <span class="slot-tag">FILE A</span><div class="ic">▤</div>
+      <div class="lbl">Click or drop .xlsx here</div>
+      <div class="fname" id="fname1"></div>
+      <input type="file" id="file1" accept=".xlsx,.xls">
+    </label>
+    <label class="dropzone" id="dz2">
+      <span class="slot-tag">FILE B</span><div class="ic">▤</div>
+      <div class="lbl">Click or drop .xlsx here</div>
+      <div class="fname" id="fname2"></div>
+      <input type="file" id="file2" accept=".xlsx,.xls">
+    </label>
+  </div>
+  <div class="status" id="gStatus"></div>
+
+  <div id="appRoot">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button class="reset" id="resetBtn">↺ Load different files</button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-view="overview">Overview</div>
+      <div class="tab" data-view="trends">Trends</div>
+      <div class="tab" data-view="valuation">Valuation</div>
+      <div class="tab" data-view="compare">Full Compare</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="overview">
+      <div class="grid2" id="ovCards"></div>
+      <div class="panel" data-tag="HEAD-TO-HEAD" style="margin-top:14px;">
+        <div class="score-bar" id="scoreBar"></div>
+        <div id="scoreLabel" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;"></div>
+        <div id="verdictList"></div>
+      </div>
+    </div>
+
+    <!-- TRENDS -->
+    <div class="view" id="trends">
+      <div class="field" style="max-width:280px;">
+        <label class="fld">Metric</label>
+        <select id="trendMetric"></select>
+      </div>
+      <div class="panel" data-tag="TREND SERIES">
+        <div class="chart-box" id="trendChart"></div>
+      </div>
+      <div class="grid2" style="margin-top:14px;">
+        <div class="panel" id="trendPanelA"><table id="trendTableA"></table></div>
+        <div class="panel" id="trendPanelB"><table id="trendTableB"></table></div>
+      </div>
+    </div>
+
+    <!-- VALUATION -->
+    <div class="view" id="valuation">
+      <div class="method-btns">
+        <button class="mbtn active" data-m="rel">Relative (P/E · P/B)</button>
+        <button class="mbtn" data-m="dcf">DCF (Cash Flow)</button>
+        <button class="mbtn" data-m="ab">Asset-Based (Residual Income)</button>
+      </div>
+
+      <!-- Relative -->
+      <div class="mpanel active" id="mp-rel">
+        <div class="grid2" id="valRelCards"></div>
+        <div class="sig"><b style="color:var(--amber)">Relative Valuation.</b> Implied price = P/E or P/B × latest EPS / BVPS.
+          Current multiple uses the most recent year; Historical average uses all available years.
+          Blended Fair Value = average of all four implied prices. Edit the market price input to compute upside/downside.</div>
+      </div>
+
+      <!-- DCF -->
+      <div class="mpanel" id="mp-dcf">
+        <div class="panel" data-tag="DCF ASSUMPTIONS" style="margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;">
+            <div><label class="fld">Discount Rate / WACC (%)</label>
+              <div class="range-row"><input type="range" id="dcf-wacc" min="6" max="25" step="0.5" value="12"><span class="rval-lbl" id="vWacc">12.0%</span></div></div>
+            <div><label class="fld">Terminal Growth Rate (%)</label>
+              <div class="range-row"><input type="range" id="dcf-tg" min="0" max="8" step="0.5" value="3"><span class="rval-lbl" id="vTg">3.0%</span></div></div>
+            <div><label class="fld">Projection Years</label>
+              <div class="range-row"><input type="range" id="dcf-yrs" min="3" max="10" step="1" value="5"><span class="rval-lbl" id="vYrs">5</span></div></div>
+          </div>
+        </div>
+        <div class="grid2" id="valDCFCards"></div>
+        <div class="sig"><b style="color:var(--amber)">DCF Method.</b>
+          Uses CFO per Share (CPS) as a proxy for Free Cash Flow to Equity per share.
+          Short-term growth is estimated from the average of historical Net Profit Growth (clipped ±30%).
+          An explicit forecast of N years + Gordon Growth terminal value is discounted at WACC.
+          Adjust the sliders above to stress-test assumptions.
+          <b style="color:var(--red)">Note:</b> Only per-share figures are available from CSTC data — no absolute revenue or balance sheet totals.</div>
+      </div>
+
+      <!-- Asset-Based -->
+      <div class="mpanel" id="mp-ab">
+        <div class="panel" data-tag="ASSET-BASED ASSUMPTIONS" style="margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;">
+            <div><label class="fld">Required Return on Equity / ke (%)</label>
+              <div class="range-row"><input type="range" id="ab-ke" min="6" max="25" step="0.5" value="12"><span class="rval-lbl" id="vKe">12.0%</span></div></div>
+            <div><label class="fld">Long-term Growth Rate / g (%)</label>
+              <div class="range-row"><input type="range" id="ab-g" min="0" max="10" step="0.5" value="3"><span class="rval-lbl" id="vAbG">3.0%</span></div></div>
+          </div>
+        </div>
+        <div class="grid2" id="valABCards"></div>
+        <div class="sig"><b style="color:var(--amber)">Residual Income (Asset-Based) Method.</b>
+          Formula: IV = BVPS + Residual Income / (ke − g), where Residual Income = EPS − ke × BVPS.
+          This is the single-stage Residual Income Model — it values the stock at book value plus the
+          present value of economic profit (earnings above the cost of equity). If residual income is negative,
+          the stock trades at a discount to book value. Requires BVPS and EPS.</div>
+      </div>
+    </div>
+
+    <!-- FULL COMPARE -->
+    <div class="view" id="compare">
+      <div class="field" style="max-width:280px;">
+        <label class="fld">Filter group</label>
+        <select id="groupFilter">
+          <option value="all">All metrics</option>
+          <option value="valuation">Valuation</option>
+          <option value="profitability">Profitability</option>
+          <option value="growth">Growth</option>
+          <option value="liquidity">Liquidity</option>
+          <option value="leverage">Leverage</option>
+          <option value="cashflow">Cash flow</option>
+        </select>
+      </div>
+      <div class="panel" data-tag="LATEST YEAR SIDE-BY-SIDE">
+        <table id="compareTable"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Reads VietstockFinance CSTC workbooks entirely in your browser — no data leaves this page.</footer>
+
+<script>
+/* ===== THEME ===== */
+const TKEY = 'cstc_theme';
+let tMode = localStorage.getItem(TKEY) || 'dark';
+function applyTheme(m){
+  tMode = m; localStorage.setItem(TKEY, m);
+  const dark = m === 'auto' ? window.matchMedia('(prefers-color-scheme:dark)').matches : m === 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+}
+document.querySelectorAll('.theme-btn').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.mode)));
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', () => { if(tMode === 'auto') applyTheme('auto'); });
+applyTheme(tMode);
+
+/* ===== METRIC DEFINITIONS ===== */
+const MDEFS = [
+  ['EPS',/thu nhập trên mỗi cổ phần.*EPS/i,'EPS (VND)','vnd'],
+  ['BVPS',/giá trị sổ sách.*BVPS/i,'BVPS (VND)','vnd'],
+  ['PE',/giá thị trường trên thu nhập.*P\/E/i,'P/E (x)','x'],
+  ['PB',/giá thị trường trên giá trị sổ sách.*P\/B/i,'P/B (x)','x'],
+  ['PS',/giá thị trường trên doanh thu thuần.*P\/S/i,'P/S (x)','x'],
+  ['DivYield',/tỷ suất cổ tức/i,'Dividend Yield (%)','pct'],
+  ['Beta',/^\s*beta\s*$/i,'Beta','x'],
+  ['EV_EBIT',/giá trị doanh nghiệp trên lợi nhuận trước thuế và lãi vay.*EV\/EBIT/i,'EV/EBIT (x)','x'],
+  ['EV_EBITDA',/EV\/EBITDA/i,'EV/EBITDA (x)','x'],
+  ['GrossMargin',/lợi nhuận gộp biên/i,'Gross Margin (%)','pct'],
+  ['EBITMargin',/tỷ lệ lãi EBIT\b/i,'EBIT Margin (%)','pct'],
+  ['EBITDAMargin',/tỷ lệ lãi EBITDA/i,'EBITDA Margin (%)','pct'],
+  ['NetMargin',/sinh lợi trên doanh thu thuần/i,'Net Margin (%)','pct'],
+  ['ROEA',/ROEA/i,'ROEA (%)','pct'],
+  ['ROCE',/ROCE/i,'ROCE (%)','pct'],
+  ['ROAA',/ROAA/i,'ROAA (%)','pct'],
+  ['RevGrowth',/tăng trưởng\s+doanh thu thuần/i,'Revenue Growth (%)','pct'],
+  ['GrossProfitGrowth',/tăng trưởng\s+lợi nhuận gộp/i,'Gross Profit Growth (%)','pct'],
+  ['EBTGrowth',/tăng trưởng lợi nhuận trước thuế/i,'EBT Growth (%)','pct'],
+  ['NPGrowth',/tăng trưởng lợi nhuận sau thuế/i,'Net Profit Growth (%)','pct'],
+  ['AssetGrowth',/tăng trưởng tổng tài sản/i,'Total Asset Growth (%)','pct'],
+  ['EquityGrowth',/tăng trưởng vốn chủ sở hữu/i,'Equity Growth (%)','pct'],
+  ['CashRatio',/thanh toán bằng tiền mặt/i,'Cash Ratio (x)','x'],
+  ['QuickRatio',/thanh toán nhanh\s*$/i,'Quick Ratio (x)','x'],
+  ['CurrentRatio',/thanh toán hiện hành/i,'Current Ratio (x)','x'],
+  ['IntCoverage',/thanh toán lãi vay/i,'Interest Coverage (x)','x'],
+  ['DebtToAssets',/Nợ trên Tổng tài sản/i,'Debt/Assets (%)','pct'],
+  ['EquityToAssets',/Vốn chủ sở hữu trên Tổng tài sản/i,'Equity/Assets (%)','pct'],
+  ['DebtToEquity',/Nợ trên Vốn chủ sở hữu/i,'Debt/Equity (%)','pct'],
+  ['CFO_Revenue',/dòng tiền HĐKD trên doanh thu thuần/i,'CFO/Revenue (%)','pct'],
+  ['CPS',/dòng tiền từ HĐKD trên mỗi cổ phần/i,'CFO per Share (VND)','vnd'],
+  ['COGS_Rev',/Giá vốn hàng bán\/Doanh thu thuần/i,'COGS/Revenue (%)','pct'],
+  ['SGA_Rev',/Chi phí quản lý doanh nghiệp\/Doanh thu thuần/i,'SGA/Revenue (%)','pct'],
+];
+const GROUPS = {
+  valuation:['EPS','BVPS','PE','PB','PS','DivYield','Beta','EV_EBIT','EV_EBITDA'],
+  profitability:['GrossMargin','EBITMargin','EBITDAMargin','NetMargin','ROEA','ROCE','ROAA'],
+  growth:['RevGrowth','GrossProfitGrowth','EBTGrowth','NPGrowth','AssetGrowth','EquityGrowth'],
+  liquidity:['CashRatio','QuickRatio','CurrentRatio','IntCoverage'],
+  leverage:['DebtToAssets','EquityToAssets','DebtToEquity'],
+  cashflow:['CFO_Revenue','CPS','COGS_Rev','SGA_Rev'],
+};
+const VERDICTS = [
+  ['P/E — lower is cheaper','PE',true],['P/B — lower is cheaper','PB',true],
+  ['EV/EBIT — lower is cheaper','EV_EBIT',true],['ROEA — higher is better','ROEA',false],
+  ['Net Margin — higher is better','NetMargin',false],['Revenue Growth — higher is better','RevGrowth',false],
+  ['Dividend Yield — higher is better','DivYield',false],['Debt/Equity — lower is safer','DebtToEquity',true],
+];
+
+let STATE = {A:null,B:null};
+const $ = id => document.getElementById(id);
+function V(s,k,i){ const m=s.metrics[k]; return m ? (m.values[i]??null) : null; }
+function li(s){ return s.years.length-1; }
+function avg(arr){ const v=arr.filter(x=>x!==null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b)/v.length:null; }
+function fmt(type,v){
+  if(v===null||v===undefined||isNaN(v)) return '–';
+  if(type==='vnd') return Math.round(v).toLocaleString();
+  if(type==='x') return v.toFixed(2)+'x';
+  return v.toFixed(2)+'%';
+}
+
+/* ===== XLSX PARSING ===== */
+function findSheet(wb){
+  if(wb.SheetNames.includes('CSTC')) return wb.Sheets['CSTC'];
+  for(const n of wb.SheetNames){ const s=wb.Sheets[n]; if(/chỉ số tài chính/i.test(s['A1']?String(s['A1'].v):'')){return s;} }
+  return wb.Sheets[wb.SheetNames[0]];
+}
+function asYear(v){
+  if(v==null) return null;
+  if(v instanceof Date) return v.getUTCFullYear();
+  if(typeof v==='number'){ if(v>1990&&v<2100) return v; if(v>20000&&v<60000){const y=new Date(Math.round((v-25569)*86400e3)).getUTCFullYear();return(y>1990&&y<2100)?y:null;} return null; }
+  if(typeof v==='string'){ const m=v.match(/(19|20)\d{2}/); return m?+m[0]:null; }
+  return null;
+}
+function parseWb(wb, fname){
+  const sheet = findSheet(wb);
+  const rows = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:true});
+  let ticker = fname.replace(/\.[^/.]+$/,'');
+  const a1m = (rows[0]&&rows[0][0]?String(rows[0][0]):'').match(/-\s*([A-Z0-9]{2,6})\s*$/);
+  if(a1m) ticker = a1m[1];
+
+  let years=[];
+  for(let i=0;i<Math.min(rows.length,6);i++){
+    const ns=rows[i].slice(1).map(asYear).filter(v=>v!==null);
+    if(ns.length>=2){years=rows[i].slice(1).map(asYear).filter(v=>v!==null).map(String);break;}
+  }
+  if(!years.length){
+    const d='BCDEFGHIJ'.split('').map(c=>sheet[c+'1']?asYear(sheet[c+'1'].v):null).filter(v=>v!==null);
+    if(d.length>=2) years=d.map(String);
+  }
+  if(!years.length) years=['Y1','Y2','Y3','Y4','Y5'];
+
+  const metrics={}, used=new Set();
+  MDEFS.forEach(([key,re,label,type])=>{
+    let f=null;
+    for(let i=0;i<rows.length;i++){
+      if(used.has(i)) continue;
+      if(typeof rows[i][0]==='string'&&re.test(rows[i][0])){f=i;break;}
+    }
+    if(f!==null){
+      used.add(f);
+      const vals=rows[f].slice(1,1+years.length).map(v=>typeof v==='number'?v:(v==null||v===''?null:parseFloat(v)));
+      while(vals.length<years.length) vals.push(null);
+      metrics[key]={label,type,values:vals};
+    }
+  });
+  return {ticker,years,metrics,sourceName:fname};
+}
+function readFile(file){
+  return new Promise((res,rej)=>{
+    if(typeof XLSX==='undefined'){rej(new Error('xlsx.js CDN failed — check internet and reload'));return;}
+    const r=new FileReader();
+    r.onload=e=>{try{res(parseWb(XLSX.read(new Uint8Array(e.target.result),{type:'array'}),file.name));}catch(e){rej(e);}};
+    r.onerror=()=>rej(new Error('File read failed'));
+    r.readAsArrayBuffer(file);
+  });
+}
+function setStatus(msg,cls){ $('gStatus').textContent=msg; $('gStatus').className='status'+(cls?' '+cls:''); }
+
+function tryBuild(){
+  if(STATE.A&&STATE.B){
+    try{ buildApp(STATE.A,STATE.B); $('appRoot').classList.add('ready'); setStatus(`Loaded ${STATE.A.ticker} and ${STATE.B.ticker}`,'ok'); }
+    catch(e){ console.error(e); setStatus('Render error: '+e.message,'err'); }
+  }
+}
+function wireDZ(dzId,fId,slot){
+  const dz=$( dzId),inp=$(fId),fn=$('fname'+(slot==='A'?'1':'2'));
+  dz.addEventListener('click',()=>inp.click());
+  inp.addEventListener('change',()=>go(inp.files[0]));
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{if(e.dataTransfer.files[0])go(e.dataTransfer.files[0]);});
+  function go(f){if(!f)return;fn.textContent=f.name;setStatus('Reading '+f.name+' …');readFile(f).then(p=>{STATE[slot]=p;tryBuild();}).catch(e=>setStatus('Error: '+e.message,'err'));}
+}
+wireDZ('dz1','file1','A'); wireDZ('dz2','file2','B');
+$('resetBtn').addEventListener('click',()=>{
+  STATE={A:null,B:null}; $('appRoot').classList.remove('ready');
+  ['fname1','fname2'].forEach(id=>$(id).textContent='');
+  ['file1','file2'].forEach(id=>$(id).value='');
+  setStatus('');
+});
+
+/* ===== TABS ===== */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); $(t.dataset.view).classList.add('active');
+}));
+
+/* ===== METHOD SWITCHER ===== */
+document.querySelectorAll('.mbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.mbtn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.mpanel').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('mp-'+b.dataset.m).classList.add('active');
+}));
+
+/* ===== SLIDER HELPER ===== */
+function wireSlider(id,valId,suf,dec,cb){
+  const s=$(id),v=$(valId);
+  const upd=()=>{v.textContent=parseFloat(s.value).toFixed(dec)+suf;cb();};
+  s.addEventListener('input',upd);
+}
+
+/* ===== BUILD ===== */
+function buildApp(A,B){ buildOverview(A,B); buildTrends(A,B); buildValuation(A,B); buildCompare(A,B); }
+
+/* ===== OVERVIEW ===== */
+function buildOverview(A,B){
+  const SNAP=[['EPS','EPS'],['BVPS','BVPS'],['PE','P/E'],['PB','P/B'],['EV_EBIT','EV/EBIT'],
+    ['ROEA','ROEA'],['NetMargin','Net Margin'],['RevGrowth','Rev Growth'],['DebtToEquity','Debt/Equity'],['DivYield','Div Yield']];
+  function card(s){
+    const l=li(s);
+    const rows=SNAP.map(([k,lbl])=>{const m=s.metrics[k];return`<tr><td>${lbl}</td><td class="num neu">${m?fmt(m.type,m.values[l]):'–'}</td></tr>`;}).join('');
+    return`<div class="panel" data-tag="${s.ticker}"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+      <div class="stock-sub">Latest: ${s.years[l]} · ${s.sourceName}</div><table><tbody>${rows}</tbody></table></div>`;
+  }
+  $('ovCards').innerHTML=card(A)+card(B);
+  let aW=0,bW=0;
+  const vl=VERDICTS.map(([lbl,key,low])=>{
+    const a=V(A,key,li(A)),b=V(B,key,li(B));
+    const type=(A.metrics[key]||B.metrics[key]||{}).type||'pct';
+    let w='tie';
+    if(a!==null&&b!==null&&a!==b) w=low?(a<b?'A':'B'):(a>b?'A':'B');
+    if(w==='A')aW++;if(w==='B')bW++;
+    const cls=w==='A'?'a':w==='B'?'b':'tie';
+    return`<div class="vrow"><span class="vm">${lbl}</span>
+      <span style="display:flex;gap:12px;align-items:center;">
+        <span>${fmt(type,a)}</span><span style="color:var(--text-dim)">vs</span><span>${fmt(type,b)}</span>
+        <span class="badge ${cls}">${w==='A'?A.ticker:w==='B'?B.ticker:'Tie'}</span>
+      </span></div>`;
+  }).join('');
+  $('verdictList').innerHTML=vl;
+  const tot=aW+bW;
+  $('scoreBar').innerHTML=`<div style="width:${tot?aW/tot*100:50}%;background:var(--green-dim);"></div><div style="width:${tot?bW/tot*100:50}%;background:var(--amber-dim);"></div>`;
+  $('scoreLabel').textContent=`${A.ticker} wins ${aW} · ${B.ticker} wins ${bW}`;
+}
+
+/* ===== TRENDS ===== */
+function buildTrends(A,B){
+  const sel=$('trendMetric'); sel.innerHTML='';
+  const keys=Object.keys(A.metrics).filter(k=>B.metrics[k]);
+  keys.forEach(k=>{ const o=document.createElement('option');o.value=k;o.textContent=A.metrics[k].label;sel.appendChild(o); });
+  if(keys.includes('PE')) sel.value='PE';
+  $('trendPanelA').dataset.tag=A.ticker+' RAW';
+  $('trendPanelB').dataset.tag=B.ticker+' RAW';
+  function render(){
+    const key=sel.value; if(!key) return;
+    const yrs=A.years.length>=B.years.length?A.years:B.years;
+    drawChart('trendChart',yrs,[
+      {label:A.ticker,values:A.metrics[key].values,color:'#3ddc84'},
+      {label:B.ticker,values:B.metrics[key].values,color:'#ffb627'},
+    ],A.metrics[key].label);
+    function tbl(s){
+      return`<thead><tr><th>Year</th>${s.years.map(y=>`<th>${y}</th>`).join('')}</tr></thead>`
+        +`<tbody><tr><td>${s.metrics[key].label}</td>${s.metrics[key].values.map(v=>`<td class="num neu">${v===null?'–':v.toFixed(2)}</td>`).join('')}</tr></tbody>`;
+    }
+    $('trendTableA').innerHTML=tbl(A); $('trendTableB').innerHTML=tbl(B);
+  }
+  sel.removeEventListener('change',sel._h||(()=>{})); sel._h=render;
+  sel.addEventListener('change',render); render();
+}
+
+/* ===== VALUATION ===== */
+function buildValuation(A,B){
+  buildRel(A,B); buildDCF(A,B); buildAB(A,B);
+  wireSlider('dcf-wacc','vWacc','%',1,()=>buildDCF(A,B));
+  wireSlider('dcf-tg','vTg','%',1,()=>buildDCF(A,B));
+  wireSlider('dcf-yrs','vYrs','',0,()=>buildDCF(A,B));
+  wireSlider('ab-ke','vKe','%',1,()=>buildAB(A,B));
+  wireSlider('ab-g','vAbG','%',1,()=>buildAB(A,B));
+}
+
+function buildRel(A,B){
+  function card(s){
+    const l=li(s),eps=V(s,'EPS',l),bvps=V(s,'BVPS',l),pe=V(s,'PE',l),pb=V(s,'PB',l);
+    if(eps===null||bvps===null||pe===null||pb===null)
+      return`<div class="panel" data-tag="${s.ticker} RELATIVE"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+        <p class="notice">⚠ Missing EPS/BVPS/P/E/P/B — cannot compute.</p></div>`;
+    const ape=avg(s.metrics.PE.values),apb=avg(s.metrics.PB.values);
+    const ip1=pe*eps,ip2=ape*eps,ip3=pb*bvps,ip4=apb*bvps,bl=(ip1+ip2+ip3+ip4)/4;
+    return`<div class="panel" data-tag="${s.ticker} RELATIVE">
+      <h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+      <div class="kpi-row">
+        <div class="kpi"><div class="lbl">EPS</div><div class="val">${Math.round(eps).toLocaleString()}</div></div>
+        <div class="kpi"><div class="lbl">BVPS</div><div class="val">${Math.round(bvps).toLocaleString()}</div></div>
+        <div class="kpi"><div class="lbl">Cur P/E</div><div class="val">${pe.toFixed(2)}x</div></div>
+        <div class="kpi"><div class="lbl">Cur P/B</div><div class="val">${pb.toFixed(2)}x</div></div>
+      </div>
+      <table><tbody>
+        <tr><td>Cur P/E × EPS</td><td class="num neu">${Math.round(ip1).toLocaleString()}</td></tr>
+        <tr><td>Avg P/E × EPS</td><td class="num neu">${Math.round(ip2).toLocaleString()}</td></tr>
+        <tr><td>Cur P/B × BVPS</td><td class="num neu">${Math.round(ip3).toLocaleString()}</td></tr>
+        <tr><td>Avg P/B × BVPS</td><td class="num neu">${Math.round(ip4).toLocaleString()}</td></tr>
+      </tbody></table>
+      <div class="vr-total"><span class="rl">Blended Fair Value</span><span class="rv">${Math.round(bl).toLocaleString()}</span></div>
+      <div class="field" style="margin-top:12px;"><label class="fld">Market Price (VND)</label>
+        <input type="number" id="rp_${s.ticker}" value="${Math.round(eps*pe)}" step="50"></div>
+      <div id="rup_${s.ticker}" class="upside-line"></div>
+    </div>`;
+  }
+  $('valRelCards').innerHTML=card(A)+card(B);
+  [A,B].forEach(s=>{
+    const l=li(s),eps=V(s,'EPS',l),bvps=V(s,'BVPS',l),pe=V(s,'PE',l),pb=V(s,'PB',l);
+    if(eps===null) return;
+    const bl=(pe*eps+avg(s.metrics.PE.values)*eps+pb*bvps+avg(s.metrics.PB.values)*bvps)/4;
+    const inp=$('rp_'+s.ticker),out=$('rup_'+s.ticker);
+    const upd=()=>{ const p=parseFloat(inp.value)||1,u=(bl-p)/p*100; out.innerHTML=`Upside vs FV: <b class="${u>=0?'pos':'neg'}">${u>=0?'+':''}${u.toFixed(1)}%</b>`; };
+    inp.addEventListener('input',upd); upd();
+  });
+}
+
+function buildDCF(A,B){
+  const wacc=parseFloat($('dcf-wacc').value)/100;
+  const tg=parseFloat($('dcf-tg').value)/100;
+  const yrs=parseInt($('dcf-yrs').value);
+  function card(s){
+    const l=li(s),cps=V(s,'CPS',l);
+    if(cps===null||cps<=0)
+      return`<div class="panel" data-tag="${s.ticker} DCF"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+        <p class="notice">⚠ DCF not available: CFO per Share (CPS) is zero, negative, or missing. DCF requires positive free cash flow.</p></div>`;
+    if(wacc<=tg)
+      return`<div class="panel" data-tag="${s.ticker} DCF"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+        <p class="notice">⚠ WACC (${(wacc*100).toFixed(1)}%) must exceed terminal growth rate (${(tg*100).toFixed(1)}%).</p></div>`;
+    const npgV=s.metrics['NPGrowth']?avg(s.metrics['NPGrowth'].values):null;
+    const g=npgV!==null?Math.max(-0.30,Math.min(0.30,npgV/100)):0.05;
+    let pv=0;
+    for(let t=1;t<=yrs;t++) pv+=cps*Math.pow(1+g,t)/Math.pow(1+wacc,t);
+    const tv=(cps*Math.pow(1+g,yrs)*(1+tg))/(wacc-tg)/Math.pow(1+wacc,yrs);
+    const iv=pv+tv;
+    let projRows='';
+    for(let t=1;t<=Math.min(yrs,5);t++){
+      const fcf=cps*Math.pow(1+g,t),pvcf=fcf/Math.pow(1+wacc,t);
+      projRows+=`<tr><td>Year +${t}</td><td class="num neu">${Math.round(fcf).toLocaleString()}</td><td class="num neu">${Math.round(pvcf).toLocaleString()}</td></tr>`;
+    }
+    if(yrs>5) projRows+=`<tr><td colspan="3" style="color:var(--text-dim);font-size:11px;">…years 6–${yrs} included in total PV below</td></tr>`;
+    return`<div class="panel" data-tag="${s.ticker} DCF">
+      <h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+      <div class="kpi-row">
+        <div class="kpi"><div class="lbl">Base CPS</div><div class="val">${Math.round(cps).toLocaleString()}</div></div>
+        <div class="kpi"><div class="lbl">Est. Growth</div><div class="val">${(g*100).toFixed(1)}%</div></div>
+        <div class="kpi"><div class="lbl">WACC</div><div class="val">${(wacc*100).toFixed(1)}%</div></div>
+        <div class="kpi"><div class="lbl">Terminal g</div><div class="val">${(tg*100).toFixed(1)}%</div></div>
+      </div>
+      <table><thead><tr><th>Period</th><th>FCF/Share</th><th>PV</th></tr></thead><tbody>${projRows}</tbody></table>
+      <div class="vr-row"><span class="rl">PV of Explicit Cash Flows</span><span class="rv">${Math.round(pv).toLocaleString()}</span></div>
+      <div class="vr-row"><span class="rl">Terminal Value (PV)</span><span class="rv">${Math.round(tv).toLocaleString()}</span></div>
+      <div class="vr-total"><span class="rl">DCF Intrinsic Value</span><span class="rv">${Math.round(iv).toLocaleString()}</span></div>
+    </div>`;
+  }
+  $('valDCFCards').innerHTML=card(A)+card(B);
+}
+
+function buildAB(A,B){
+  const ke=parseFloat($('ab-ke').value)/100;
+  const g=parseFloat($('ab-g').value)/100;
+  function card(s){
+    const l=li(s),bvps=V(s,'BVPS',l),eps=V(s,'EPS',l);
+    if(bvps===null||eps===null)
+      return`<div class="panel" data-tag="${s.ticker} ASSET-BASED"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+        <p class="notice">⚠ Missing BVPS or EPS — cannot compute residual income valuation.</p></div>`;
+    if(ke<=g)
+      return`<div class="panel" data-tag="${s.ticker} ASSET-BASED"><h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+        <p class="notice">⚠ Required return ke (${(ke*100).toFixed(1)}%) must exceed growth rate g (${(g*100).toFixed(1)}%).</p></div>`;
+    const ri=eps-ke*bvps;
+    const pvRI=ri/(ke-g);
+    const iv=bvps+pvRI;
+    const roea=V(s,'ROEA',l);
+    const spread=roea!==null?roea-ke*100:null;
+    return`<div class="panel" data-tag="${s.ticker} ASSET-BASED">
+      <h2 class="stock-h1"><span class="sym">${s.ticker}</span></h2>
+      <div class="kpi-row">
+        <div class="kpi"><div class="lbl">BVPS</div><div class="val">${Math.round(bvps).toLocaleString()}</div></div>
+        <div class="kpi"><div class="lbl">EPS</div><div class="val">${Math.round(eps).toLocaleString()}</div></div>
+        <div class="kpi"><div class="lbl">ke</div><div class="val">${(ke*100).toFixed(1)}%</div></div>
+        ${roea!==null?`<div class="kpi"><div class="lbl">ROEA</div><div class="val">${roea.toFixed(1)}%</div></div>`:''}
+      </div>
+      <table><tbody>
+        <tr><td>Book Value (BVPS)</td><td class="num neu">${Math.round(bvps).toLocaleString()}</td></tr>
+        <tr><td>Cost of Equity × BVPS</td><td class="num neu">${Math.round(ke*bvps).toLocaleString()}</td></tr>
+        <tr><td>Residual Income (EPS − ke×BVPS)</td><td class="num ${ri>=0?'pos':'neg'}">${Math.round(ri).toLocaleString()}</td></tr>
+        <tr><td>PV of Residual Income ÷ (ke−g)</td><td class="num ${pvRI>=0?'pos':'neg'}">${Math.round(pvRI).toLocaleString()}</td></tr>
+        ${spread!==null?`<tr><td>ROEA vs ke (economic spread)</td><td class="num ${spread>=0?'pos':'neg'}">${spread.toFixed(2)}pp</td></tr>`:''}
+      </tbody></table>
+      <div class="vr-total"><span class="rl">Intrinsic Value (RI Model)</span><span class="rv">${Math.round(iv).toLocaleString()}</span></div>
+    </div>`;
+  }
+  $('valABCards').innerHTML=card(A)+card(B);
+}
+
+/* ===== COMPARE ===== */
+function buildCompare(A,B){
+  const sel=$('groupFilter');
+  function render(){
+    const g=sel.value;
+    const all=Object.keys(A.metrics).filter(k=>B.metrics[k]);
+    const keys=g==='all'?all:(GROUPS[g]||[]).filter(k=>all.includes(k));
+    const la=li(A),lb=li(B);
+    let html=`<thead><tr><th>Metric</th><th>${A.ticker}</th><th>${B.ticker}</th><th>Δ (${A.ticker}−${B.ticker})</th></tr></thead><tbody>`;
+    keys.forEach(k=>{
+      const a=V(A,k,la),b=V(B,k,lb),type=A.metrics[k].type;
+      const d=(a!==null&&b!==null)?a-b:null;
+      const dc=d===null?'neu':d>0?'pos':d<0?'neg':'neu';
+      html+=`<tr><td>${A.metrics[k].label}</td><td class="num neu">${fmt(type,a)}</td><td class="num neu">${fmt(type,b)}</td>
+        <td class="num ${dc}">${d===null?'–':(type==='x'?d.toFixed(2)+'x':d.toFixed(2)+'%')}</td></tr>`;
+    });
+    $('compareTable').innerHTML=html+'</tbody>';
+  }
+  sel.removeEventListener('change',sel._h||(()=>{})); sel._h=render;
+  sel.addEventListener('change',render); render();
+}
+
+/* ===== SVG LINE CHART ===== */
+function drawChart(cid,labels,series,title){
+  const host=$(cid);
+  const W=host.clientWidth||600,H=host.clientHeight||260;
+  const pL=50,pR=20,pT=34,pB=30,pW=W-pL-pR,pH=H-pT-pB;
+
+  const all=series.flatMap(s=>s.values.filter(v=>v!==null&&!isNaN(v)));
+  let mn=Math.min(...all),mx=Math.max(...all);
+  if(!isFinite(mn)){mn=0;mx=1;} if(mn===mx){mn-=1;mx+=1;}
+  const pad=(mx-mn)*0.12; mn-=pad; mx+=pad;
+  const n=labels.length;
+  const xF=i=>pL+(n<=1?pW/2:pW*i/(n-1));
+  const yF=v=>pT+pH-((v-mn)/(mx-mn))*pH;
+
+  let grid='';
+  for(let i=0;i<=4;i++){
+    const v=mn+(mx-mn)*i/4,yy=yF(v);
+    grid+=`<line x1="${pL}" y1="${yy}" x2="${W-pR}" y2="${yy}" stroke="var(--grid)" stroke-width="1"/>`;
+    grid+=`<text x="${pL-7}" y="${yy+3.5}" text-anchor="end" font-size="9.5" fill="var(--text-dim)" font-family="Courier New">${v.toFixed(1)}</text>`;
+  }
+  labels.forEach((lab,i)=>{
+    const xx=xF(i);
+    grid+=`<line x1="${xx}" y1="${pT}" x2="${xx}" y2="${pT+pH}" stroke="var(--grid)" stroke-width="1"/>`;
+    grid+=`<text x="${xx}" y="${H-9}" text-anchor="middle" font-size="9.5" fill="var(--text-dim)" font-family="Courier New">${lab}</text>`;
+  });
+
+  function smooth(pts){
+    let d='',segs=[],cur=[];
+    pts.forEach(p=>{if(p===null){if(cur.length)segs.push(cur);cur=[];}else cur.push(p);});
+    if(cur.length)segs.push(cur);
+    segs.forEach(seg=>{
+      if(seg.length===1){d+=`M ${seg[0].x} ${seg[0].y} `;return;}
+      d+=`M ${seg[0].x} ${seg[0].y} `;
+      for(let k=0;k<seg.length-1;k++){
+        const p0=seg[k-1]||seg[k],p1=seg[k],p2=seg[k+1],p3=seg[k+2]||p2;
+        const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6;
+        const c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;
+        d+=`C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y} `;
+      }
+    });
+    return d;
+  }
+
+  let defs='',areas='',lines='',dots='',legend='';
+  const pts=[];
+  series.forEach((s,si)=>{
+    const p=s.values.map((v,i)=>v===null||isNaN(v)?null:{x:xF(i),y:yF(v),v});
+    pts.push(p);
+    const path=smooth(p);
+    const gid=`g_${cid}_${si}`;
+    defs+=`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${s.color}" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="${s.color}" stop-opacity="0"/>
+    </linearGradient>`;
+    const valid=p.filter(x=>x);
+    if(valid.length>1) areas+=`<path d="${path} L ${valid[valid.length-1].x} ${pT+pH} L ${valid[0].x} ${pT+pH} Z" fill="url(#${gid})"/>`;
+    lines+=`<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linecap="round"/>`;
+    p.forEach((q,i)=>{ if(q) dots+=`<circle class="cd" data-si="${si}" data-i="${i}" cx="${q.x}" cy="${q.y}" r="3.5" fill="${s.color}" stroke="var(--bg)" stroke-width="1.5"/>`; });
+    legend+=`<g transform="translate(${pL+si*110},17)"><line x1="0" y1="0" x2="14" y2="0" stroke="${s.color}" stroke-width="2.5"/>
+      <text x="20" y="4" font-size="11" fill="var(--text)" font-family="Courier New">${s.label}</text></g>`;
+  });
+
+  host.innerHTML=`<svg id="${cid}-svg" width="100%" height="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="cursor:crosshair;overflow:visible">
+    <defs>${defs}</defs>${grid}
+    <text x="${W/2}" y="${pT-14}" text-anchor="middle" font-size="13" fill="var(--amber)" font-family="Georgia,serif">${title}</text>
+    ${legend}${areas}${lines}${dots}
+    <line id="${cid}-ch" x1="0" y1="${pT}" x2="0" y2="${pT+pH}" stroke="var(--amber)" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+  </svg>
+  <div id="${cid}-tip" style="position:absolute;display:none;pointer-events:none;background:var(--panel);border:1px solid var(--panel-edge);padding:8px 10px;font-size:11.5px;font-family:'Courier New';color:var(--text);border-radius:3px;z-index:10;white-space:nowrap;box-shadow:0 4px 14px var(--shadow)"></div>`;
+
+  host.style.position='relative';
+  const svg=$(cid+'-svg'),ch=$(cid+'-ch'),tip=$(cid+'-tip');
+
+  function showAt(idx){
+    const xx=xF(idx);
+    ch.setAttribute('x1',xx);ch.setAttribute('x2',xx);ch.setAttribute('opacity','1');
+    let inner=`<div style="color:var(--amber);margin-bottom:5px;letter-spacing:1px;">${labels[idx]}</div>`;
+    series.forEach((s,si)=>{ const q=pts[si][idx]; inner+=`<div style="display:flex;gap:10px;justify-content:space-between;"><span style="color:${s.color}">${s.label}</span><b>${q?q.v.toFixed(2):'–'}</b></div>`; });
+    tip.innerHTML=inner;tip.style.display='block';
+    const r=host.getBoundingClientRect(),sx=r.width/W;
+    let left=xx*sx+14; if(left+145>r.width) left=xx*sx-155;
+    tip.style.left=left+'px';tip.style.top='5px';
+    svg.querySelectorAll('.cd').forEach(c=>c.setAttribute('r',+c.dataset.i===idx?'5.5':'3.5'));
+  }
+  function hide(){ ch.setAttribute('opacity','0');tip.style.display='none';svg.querySelectorAll('.cd').forEach(c=>c.setAttribute('r','3.5')); }
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(),rx=(e.clientX-r.left)/r.width*W;
+    let idx=0,best=Infinity;
+    for(let i=0;i<n;i++){const d=Math.abs(xF(i)-rx);if(d<best){best=d;idx=i;}}
+    showAt(idx);
+  });
+  svg.addEventListener('mouseleave',hide);
+  svg.addEventListener('touchmove',e=>{
+    e.preventDefault();const t=e.touches[0],r=svg.getBoundingClientRect(),rx=(t.clientX-r.left)/r.width*W;
+    let idx=0,best=Infinity;
+    for(let i=0;i<n;i++){const d=Math.abs(xF(i)-rx);if(d<best){best=d;idx=i;}}
+    showAt(idx);
+  },{passive:false});
+}
+</script>
+</body>
+</html>
